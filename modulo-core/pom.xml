@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- 1. Hereda del POM Padre -->
+    <parent>
+        <groupId>com.cooperativa.erp</groupId>
+        <artifactId>erp-cooperativa-parent</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+    </parent>
+
+    <!-- 2. Coordenadas de ESTE módulo -->
+    <artifactId>modulo-core</artifactId>
+    <name>Modulo: Core</name>
+    <description>Módulo con entidades y lógica de negocio central (Socios, Seguridad, etc.)</description>
+    <!-- El packaging por defecto es 'jar', lo cual es correcto -->
+
+    <!-- 3. Dependencias de Core -->
+    <dependencies>
+        <!-- JPA: Para definir nuestras entidades @Entity (Socio, Usuario) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+
+        <!-- Seguridad: Para definir las entidades @User (Usuario, Rol) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
+        <!-- Validación: Para usar @NotNull, @Size, etc. en las entidades -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+        <!-- Driver de Base de Datos: PostgreSQL, como definimos -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+    </dependencies>
+
+</project>
