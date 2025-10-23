@@ -30,6 +30,7 @@
     <modules>
         <module>modulo-core</module>
         <module>modulo-app</module>
+        <module>modulo-electricidad</module>
     </modules>
 
     <dependencyManagement>
