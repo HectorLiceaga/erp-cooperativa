@@ -1,16 +1,20 @@
 package com.cooperativa.erp.electricidad.entity;
 
-import com.cooperativa.erp.core.entity.Suministro; // Importa desde modulo-core
+import com.cooperativa.erp.core.entity.Suministro; // Import correcto
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import lombok.Data;
+import jakarta.validation.constraints.PositiveOrZero;
+import lombok.Data; // <-- AÑADIR ESTA ANOTACIÓN
 import lombok.NoArgsConstructor;
+
 import java.math.BigDecimal;
 
 @Entity
-@Table(name = "elec_medidores") // Prefijo 'elec_' para tablas de este módulo
-@Data // Lombok para getters, setters, toString, equals, hashCode
+@Table(name = "elec_medidores", uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"numero"}, name = "uk_medidor_numero") // Asegura número único
+})
+@Data // <-- AÑADIR ESTA ANOTACIÓN (Genera getters, setters, toString, equals, hashCode)
 @NoArgsConstructor
 public class Medidor {
 
@@ -19,32 +23,31 @@ public class Medidor {
     private Long id;
 
     @NotBlank
-    @Column(unique = true, nullable = false)
-    private String numeroSerie;
+    @Column(nullable = false, unique = true, length = 50)
+    private String numero; // Número de serie/identificador único del medidor
 
+    @NotBlank
+    @Column(nullable = false, length = 100)
     private String marca;
+
+    @NotBlank
+    @Column(nullable = false, length = 100)
     private String modelo;
 
     @NotNull
-    private Integer fases = 1; // Monofásico por defecto
+    @PositiveOrZero
+    @Column(nullable = false, precision = 10, scale = 4) // Ej: 1.0000 para directo, 10.0000 si multiplica x10
+    private BigDecimal constanteMultiplicacion = BigDecimal.ONE; // Valor por defecto
 
-    // Podríamos tener una relación OneToOne o ManyToOne aquí.
-    // Si un medidor SIEMPRE pertenece a UN suministro, es OneToOne.
-    // Si un medidor puede ser REUTILIZADO (raro), sería ManyToOne.
-    // Empecemos con OneToOne. Si un suministro cambia de medidor, se DESASOCIA el viejo y se ASOCIA el nuevo.
-    @OneToOne(fetch = FetchType.LAZY) // Lazy para no cargarlo siempre
-    @JoinColumn(name = "suministro_id", unique = true) // Clave foránea en esta tabla
-    private Suministro suministro;
-    // ¡Ojo! Suministro viene de modulo-core. ¡La magia del multi-módulo!
+    // Relación con Suministro (Un medidor puede estar en UN suministro a la vez)
+    @ManyToOne(fetch = FetchType.LAZY) // Lazy para no cargar siempre el suministro
+    @JoinColumn(name = "suministro_id") // Clave foránea en la tabla elec_medidores
+    private Suministro suministro; // Puede ser null si el medidor está en depósito
 
-    // Otros campos específicos del medidor...
-    private BigDecimal constanteMultiplicacion = BigDecimal.ONE; // KM
-
-    // Constructor útil
-    public Medidor(String numeroSerie, String marca, String modelo) {
-        this.numeroSerie = numeroSerie;
-        this.marca = marca;
-        this.modelo = modelo;
-    }
+    // Podríamos añadir estado: "Instalado", "En Deposito", "Retirado", etc.
+    // @Column(length = 20)
+    // private String estadoActual;
 }
+
+
 
