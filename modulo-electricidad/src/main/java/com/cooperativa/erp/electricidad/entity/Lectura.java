@@ -1,18 +1,20 @@
 package com.cooperativa.erp.electricidad.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PastOrPresent;
+import jakarta.validation.constraints.PositiveOrZero;
 import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.NoArgsConstructor; // Mantenemos el constructor vacío para JPA
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "elec_lecturas")
 @Data
-@NoArgsConstructor
+@NoArgsConstructor // Lombok genera el constructor sin argumentos requerido por JPA
 public class Lectura {
 
     @Id
@@ -20,63 +22,41 @@ public class Lectura {
     private Long id;
 
     @NotNull
-    @ManyToOne(fetch = FetchType.LAZY) // Varias lecturas por medidor
+    @ManyToOne(fetch = FetchType.LAZY, optional = false) // Optional=false -> no puede ser nulo en BD
     @JoinColumn(name = "medidor_id", nullable = false)
     private Medidor medidor;
 
     @NotNull
+    @PastOrPresent // La fecha no puede ser futura
     @Column(nullable = false)
-    private LocalDate periodo; // Ej: 2025-10-01 (representa el mes/bimestre)
+    private LocalDate fechaLectura;
 
     @NotNull
-    @Column(nullable = false)
-    private LocalDateTime fechaLectura;
+    @PositiveOrZero // El estado no puede ser negativo
+    @Column(nullable = false, precision = 10, scale = 2) // Ajusta precision/scale según necesidad
+    private BigDecimal estado;
 
-    @NotNull
-    @Column(precision = 12, scale = 2) // Ejemplo: 12 dígitos, 2 decimales
-    private BigDecimal estadoAnterior;
+    @NotBlank
+    @Column(nullable = false, length = 50)
+    private String tipoLectura; // Ej: "Normal", "Estimada", "Retiro", "Instalacion"
 
-    @NotNull
-    @Column(precision = 12, scale = 2)
-    private BigDecimal estadoActual;
-
-    @NotNull
-    @Column(precision = 12, scale = 2)
-    private BigDecimal consumoCalculado; // (estadoActual - estadoAnterior) * constanteMultiplicacion
-
-    private String tipoLectura; // Ej: "NORMAL", "ESTIMADA", "RECLAMO"
-    private String lector; // Nombre o ID del operario
-
-    // Constructor útil
-    public Lectura(Medidor medidor, LocalDate periodo, LocalDateTime fechaLectura, BigDecimal estadoAnterior, BigDecimal estadoActual, String tipoLectura, String lector) {
+    // --- NUEVO CONSTRUCTOR ---
+    /**
+     * Constructor para crear una nueva lectura.
+     * @param medidor El medidor asociado.
+     * @param fechaLectura La fecha de la lectura.
+     * @param estado El estado numérico leído.
+     * @param tipoLectura El tipo de lectura.
+     */
+    public Lectura(Medidor medidor, LocalDate fechaLectura, BigDecimal estado, String tipoLectura) {
         this.medidor = medidor;
-        this.periodo = periodo;
         this.fechaLectura = fechaLectura;
-        this.estadoAnterior = estadoAnterior;
-        this.estadoActual = estadoActual;
+        this.estado = estado;
         this.tipoLectura = tipoLectura;
-        this.lector = lector;
-        // Calcular el consumo (simplificado, habría que traer la constante del medidor)
-        // En una implementación real, esto se haría en un Servicio.
-        if(medidor != null && medidor.getConstanteMultiplicacion() != null) {
-            this.consumoCalculado = estadoActual.subtract(estadoAnterior).multiply(medidor.getConstanteMultiplicacion());
-        } else {
-            this.consumoCalculado = estadoActual.subtract(estadoAnterior); // O lanzar error
-        }
     }
+    // --- FIN NUEVO CONSTRUCTOR ---
 
-    // Podríamos agregar un método prePersist/preUpdate para asegurar el cálculo del consumo
-    @PrePersist
-    @PreUpdate
-    private void calcularConsumo() {
-        if (medidor != null && medidor.getConstanteMultiplicacion() != null && estadoActual != null && estadoAnterior != null) {
-            this.consumoCalculado = estadoActual.subtract(estadoAnterior).multiply(medidor.getConstanteMultiplicacion());
-        } else if (estadoActual != null && estadoAnterior != null) {
-            this.consumoCalculado = estadoActual.subtract(estadoAnterior); // Asumir KM=1 si no hay datos
-        } else {
-            this.consumoCalculado = BigDecimal.ZERO;
-        }
-    }
+    // Podríamos añadir campos calculados si es útil, ej:
+    // private BigDecimal consumoCalculado;
 }
-
 
