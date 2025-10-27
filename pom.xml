@@ -1,43 +1,64 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-
-    <parent>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.3.5</version>
-        <relativePath/>
-    </parent>
 
     <groupId>com.cooperativa.erp</groupId>
     <artifactId>erp-cooperativa-parent</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <packaging>pom</packaging>
+    <packaging>pom</packaging> <!-- Empaquetado POM para un proyecto padre -->
     <name>ERP Cooperativa - Parent</name>
-    <description>Proyecto Padre que gestiona los módulos del ERP de Cooperativas</description>
+    <description>Proyecto Padre para el ERP de Cooperativas Eléctricas</description>
 
-    <properties>
-        <!--
-          Propiedades explícitas para la versión de Java.
-          Actualizado a Java 21 según tu generación del proyecto.
-        -->
-        <java.version>21</java.version>
-        <maven.compiler.source>21</maven.compiler.source>
-        <maven.compiler.target>21</maven.compiler.target>
-    </properties>
-
+    <!-- Módulos que componen el proyecto -->
     <modules>
         <module>modulo-core</module>
         <module>modulo-app</module>
+        <module>modulo-electricidad</module> <!-- Módulo añadido -->
     </modules>
 
+    <properties>
+        <java.version>21</java.version>
+        <maven.compiler.source>${java.version}</maven.compiler.source>
+        <maven.compiler.target>${java.version}</maven.compiler.target>
+        <spring-boot.version>3.3.5</spring-boot.version>
+        <!-- Versión explícita del compiler plugin -->
+        <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
+        <!-- Versión explícita del resources plugin -->
+        <maven-resources-plugin.version>3.3.1</maven-resources-plugin.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+    </properties>
+
+    <!-- Gestión centralizada de dependencias -->
     <dependencyManagement>
         <dependencies>
+            <!-- Importa el BOM de Spring Boot para gestionar versiones -->
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-dependencies</artifactId>
+                <version>${spring-boot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- Módulos internos (para que los hijos puedan depender entre sí sin especificar versión) -->
             <dependency>
                 <groupId>com.cooperativa.erp</groupId>
                 <artifactId>modulo-core</artifactId>
                 <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.cooperativa.erp</groupId>
+                <artifactId>modulo-electricidad</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <!-- Lombok (gestión centralizada) -->
+            <dependency>
+                <groupId>org.projectlombok</groupId>
+                <artifactId>lombok</artifactId>
+                <version>1.18.34</version> <!-- Usa una versión reciente y estable -->
+                <optional>true</optional> <!-- Lombok es opcional en tiempo de ejecución -->
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -45,21 +66,66 @@
     <build>
         <pluginManagement>
             <plugins>
-                <!--
-                  Seguimos manteniendo esta configuración explícita
-                  para el plugin compilador.
-                -->
+                <!-- Plugin de Spring Boot -->
+                <plugin>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-maven-plugin</artifactId>
+                    <version>${spring-boot.version}</version>
+                </plugin>
+
+                <!-- Plugin del Compilador de Java -->
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
-                    <version>3.13.0</version>
+                    <version>${maven-compiler-plugin.version}</version>
                     <configuration>
-                        <!-- 'release' es la forma moderna de setear 'source' y 'target' -->
-                        <release>${java.version}</release>
+                        <source>${java.version}</source>
+                        <target>${java.version}</target>
+                        <compilerArgs>
+                            <arg>-parameters</arg>
+                        </compilerArgs>
+                    </configuration>
+                </plugin>
+
+                <!-- Plugin para manejar los recursos -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-resources-plugin</artifactId>
+                    <version>${maven-resources-plugin.version}</version>
+                    <configuration>
+                        <encoding>UTF-8</encoding>
+                        <filtering>false</filtering> <!-- Mantenemos esto por ahora -->
+                    </configuration>
+                </plugin>
+
+                <!-- Plugin Surefire para ejecutar tests -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>3.2.5</version>
+                    <configuration>
+                        <!-- **** MODIFICACIÓN AQUÍ: Desactivamos el forking **** -->
+                        <forkCount>0</forkCount>
+                        <!-- Mantenemos los args de memoria por si acaso, aunque forkCount=0 podría ignorarlos -->
+                        <argLine>@{argLine} -Xms512m -Xmx1024m</argLine>
                     </configuration>
                 </plugin>
             </plugins>
         </pluginManagement>
+
+        <!-- Asegurar que el encoding se use globalmente -->
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <!-- La configuración de encoding ya está en pluginManagement,
+                     pero podemos dejarla aquí explícitamente si queremos -->
+                <configuration>
+                    <encoding>UTF-8</encoding>
+                </configuration>
+            </plugin>
+        </plugins>
+
     </build>
 
 </project>

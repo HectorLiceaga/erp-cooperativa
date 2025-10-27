@@ -2,61 +2,89 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-
     <parent>
         <groupId>com.cooperativa.erp</groupId>
         <artifactId>erp-cooperativa-parent</artifactId>
         <version>0.0.1-SNAPSHOT</version>
-        <relativePath>../pom.xml</relativePath> <!-- Apunta al POM padre en la carpeta superior -->
+        <relativePath>../pom.xml</relativePath> <!-- Ajusta según sea necesario -->
     </parent>
 
     <artifactId>modulo-app</artifactId>
     <name>Modulo: App (Ejecutable)</name>
-    <description>Módulo principal que ensambla la aplicación Spring Boot.</description>
+    <description>Módulo principal ejecutable que ensambla la aplicación ERP.</description>
 
     <dependencies>
-        <!-- Dependencia de Spring Web (APIs) -->
+        <!-- Dependencia del módulo Core -->
+        <dependency>
+            <groupId>com.cooperativa.erp</groupId>
+            <artifactId>modulo-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- Dependencia del módulo Electricidad -->
+        <dependency>
+            <groupId>com.cooperativa.erp</groupId>
+            <artifactId>modulo-electricidad</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- Spring Boot Starters (Heredados del parent o específicos) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
-
-        <!-- Dependencia a nuestro módulo core -->
+        <!-- Spring Security ya viene transitivamente de modulo-core, pero lo dejamos explícito por claridad -->
         <dependency>
-            <groupId>com.cooperativa.erp</groupId>
-            <artifactId>modulo-core</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+        <!-- Lombok (Heredado del parent) -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
         </dependency>
 
 
-        <!-- Dependencia de testing que agregamos antes -->
+        <!-- Dependencias de Test (JUnit, Spring Test, etc.) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
-
-        <!--
-          *** LA SOLUCIÓN ESTÁ AQUÍ ***
-          Agregamos una base de datos EN MEMORIA (H2)
-          que se usará *únicamente* cuando corran los tests.
-        -->
         <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
             <scope>test</scope>
         </dependency>
 
+
+        <!-- Base de datos H2 en memoria -->
+        <!-- ¡OJO! Quitamos <scope>test</scope> para que esté disponible en runtime -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+        </dependency>
     </dependencies>
 
     <build>
         <plugins>
-            <!-- Plugin para empaquetar todo en un solo JAR ejecutable -->
+            <!-- Plugin para empaquetar la aplicación como un JAR ejecutable -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
             </plugin>
         </plugins>
     </build>
 
 </project>
+
 
