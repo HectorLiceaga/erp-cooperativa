@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <!-- Hereda del POM padre -->
+    <parent>
+        <groupId>com.cooperativa.erp</groupId>
+        <artifactId>erp-cooperativa-parent</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>modulo-facturacion</artifactId>
+    <name>Modulo: Facturacion</name>
+    <description>Módulo encargado de la lógica de facturación</description>
+
+    <dependencies>
+        <!-- Dependencias de Spring Boot -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-batch</artifactId> <!-- Incluido para el futuro proceso batch -->
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId> <!-- Para validaciones de entidades si es necesario -->
+        </dependency>
+
+        <!-- Lombok (heredado de parent) -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- *** DEPENDENCIAS INTERNAS *** -->
+        <dependency>
+            <groupId>com.cooperativa.erp</groupId>
+            <artifactId>modulo-core</artifactId>
+            <!-- La versión es gestionada por el parent -->
+        </dependency>
+        <!-- ****** ¡DEPENDENCIA FALTANTE AÑADIDA! ****** -->
+        <dependency>
+            <groupId>com.cooperativa.erp</groupId>
+            <artifactId>modulo-electricidad</artifactId>
+            <!-- La versión es gestionada por el parent -->
+        </dependency>
+
+    </dependencies>
+
+</project>
+
