@@ -37,6 +37,7 @@
         <module>modulo-electricidad</module> <!-- Lógica específica de electricidad -->
         <module>modulo-facturacion</module>  <!-- Lógica de Facturación (UNA SOLA VEZ) -->
         <module>modulo-app</module>          <!-- Aplicación ejecutable -->
+        <module>modulo-contabilidad</module>
     </modules>
 
     <!-- Dependency Management: Define versiones aquí, los módulos hijos solo declaran groupId y artifactId -->
