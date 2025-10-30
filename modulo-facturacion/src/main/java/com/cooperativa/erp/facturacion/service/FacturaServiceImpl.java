@@ -1,5 +1,12 @@
 package com.cooperativa.erp.facturacion.service;
 
+// --- Imports de Contabilidad (NUEVOS) ---
+import com.cooperativa.erp.contabilidad.dto.AsientoDTO;
+import com.cooperativa.erp.contabilidad.entity.PlanDeCuentas;
+import com.cooperativa.erp.contabilidad.service.AsientoService;
+import com.cooperativa.erp.contabilidad.service.ParametroContableService;
+// --- Fin Imports Contabilidad ---
+
 import com.cooperativa.erp.core.entity.ContratoServicio;
 import com.cooperativa.erp.core.entity.Socio;
 import com.cooperativa.erp.core.entity.Suministro;
@@ -8,15 +15,10 @@ import com.cooperativa.erp.electricidad.repository.ConceptoFacturableRepository;
 import com.cooperativa.erp.electricidad.repository.ContratoElectricidadRepository;
 import com.cooperativa.erp.electricidad.service.LecturaService;
 import com.cooperativa.erp.electricidad.service.PrecioConceptoService;
-import com.cooperativa.erp.facturacion.entity.ComprobanteTipo;
-import com.cooperativa.erp.facturacion.entity.Factura;
-import com.cooperativa.erp.facturacion.entity.FacturaDetalle;
-import com.cooperativa.erp.facturacion.entity.PuntoVenta;
+import com.cooperativa.erp.facturacion.entity.*;
+import com.cooperativa.erp.facturacion.repository.ComprobanteTipoRepository;
 import com.cooperativa.erp.facturacion.repository.FacturaRepository;
 import com.cooperativa.erp.facturacion.repository.PuntoVentaRepository;
-import com.cooperativa.erp.facturacion.repository.ComprobanteTipoRepository;
-
-
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import org.slf4j.Logger;
@@ -24,7 +26,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
-
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -38,20 +39,20 @@ public class FacturaServiceImpl implements FacturaService {
 
     private static final Logger log = LoggerFactory.getLogger(FacturaServiceImpl.class);
 
-    // Repositorios
+    // --- Repositorios y Servicios existentes ---
     private final FacturaRepository facturaRepository;
     private final PuntoVentaRepository puntoVentaRepository;
     private final ComprobanteTipoRepository comprobanteTipoRepository;
     private final ConceptoFacturableRepository conceptoFacturableRepository;
     private final ContratoElectricidadRepository contratoElectricidadRepository;
     private final EntityManager entityManager;
-
-    // Servicios de otros módulos
     private final LecturaService lecturaService;
     private final PrecioConceptoService precioConceptoService;
-
-    // --- NUEVO SERVICIO INYECTADO ---
     private final CtaCteService ctaCteService;
+
+    // --- SERVICIOS AÑADIDOS (FASE 5) ---
+    private final AsientoService asientoService;
+    private final ParametroContableService parametroContableService;
 
     // --- CONSTRUCTOR ACTUALIZADO ---
     public FacturaServiceImpl(FacturaRepository facturaRepository,
@@ -62,7 +63,10 @@ public class FacturaServiceImpl implements FacturaService {
                               LecturaService lecturaService,
                               PrecioConceptoService precioConceptoService,
                               EntityManager entityManager,
-                              CtaCteService ctaCteService) { // Añadido
+                              CtaCteService ctaCteService,
+                              // --- Inyección Fase 5 ---
+                              AsientoService asientoService,
+                              ParametroContableService parametroContableService) {
         this.facturaRepository = facturaRepository;
         this.puntoVentaRepository = puntoVentaRepository;
         this.comprobanteTipoRepository = comprobanteTipoRepository;
@@ -71,9 +75,13 @@ public class FacturaServiceImpl implements FacturaService {
         this.lecturaService = lecturaService;
         this.precioConceptoService = precioConceptoService;
         this.entityManager = entityManager;
-        this.ctaCteService = ctaCteService; // Añadido
+        this.ctaCteService = ctaCteService;
+        // --- Asignación Fase 5 ---
+        this.asientoService = asientoService;
+        this.parametroContableService = parametroContableService;
     }
 
+    // ... (El método generarFacturaPeriodo() no cambia) ...
     @Override
     @Transactional(readOnly = true)
     public Factura generarFacturaPeriodo(Suministro suministro,
@@ -91,11 +99,9 @@ public class FacturaServiceImpl implements FacturaService {
         }
         log.debug("Socio: {} ({}) - Condición IVA: {}", socio.getNombreCompleto(), socio.getCuit(), socio.getCondicionIVA());
 
-        // --- 1. Determinar Tipo de Comprobante ---
         ComprobanteTipo tipoComprobante = determinarTipoComprobante(socio.getCondicionIVA());
-        log.debug("Tipo de Comprobante determinado: {}", tipoComprobante.getCodigoAfip()); // Lombok generará getCodigoAfip()
+        log.debug("Tipo de Comprobante determinado: {}", tipoComprobante.getCodigoAfip());
 
-        // --- 2. Obtener Contrato, Medidor y Categoría Tarifaria ---
         ContratoElectricidad contratoElec = contratoElectricidadRepository
                 .findBySuministroAndEstado(suministro, ContratoServicio.EstadoContrato.ACTIVO)
                 .orElseThrow(() -> new Exception("No se encontró un contrato de electricidad ACTIVO para el suministro " + suministro.getNis()));
@@ -105,7 +111,6 @@ public class FacturaServiceImpl implements FacturaService {
         log.debug("Contrato activo encontrado. ID: {}. Medidor: {}, Categoría: {}", contratoElec.getId(), medidor.getNumero(), categoria.getCodigo());
 
 
-        // --- 3. Obtener Lecturas y Calcular Consumo ---
         Optional<Lectura> optLecturaInicial = lecturaService.buscarUltimaLecturaAntesDe(contratoElec.getId(), fechaDesde);
         Optional<Lectura> optLecturaFinal = lecturaService.buscarPrimeraLecturaDesde(contratoElec.getId(), fechaHasta);
 
@@ -125,15 +130,13 @@ public class FacturaServiceImpl implements FacturaService {
             throw new Exception("Lecturas de inicio/fin de período inconsistentes.");
         }
 
-        // Usamos el consumo pre-calculado en la Lectura (más eficiente)
-        BigDecimal consumoCalculado = lecturaFinal.getConsumoKwh()
+        BigDecimal consumoCalculado = (lecturaFinal.getEstadoActual().subtract(lecturaInicial.getEstadoActual()))
                 .multiply(medidor.getConstanteMultiplicacion());
 
-        log.info("Consumo (pre-calculado en Lectura): {} kWh. Multiplicado por constante {}: {} kWh",
-                lecturaFinal.getConsumoKwh(), medidor.getConstanteMultiplicacion(), consumoCalculado);
+        log.info("Consumo calculado: {} kWh ( ({} - {}) * {} )", consumoCalculado.setScale(2, RoundingMode.HALF_UP),
+                lecturaFinal.getEstadoActual(), lecturaInicial.getEstadoActual(), medidor.getConstanteMultiplicacion());
 
 
-        // --- 4. Obtener Precios Vigentes y Calcular Items ---
         List<PrecioConcepto> preciosVigentes = precioConceptoService.obtenerPreciosVigentes(categoria.getId(), fechaHasta);
         log.debug("Se encontraron {} precios vigentes para la categoría {} en fecha {}",
                 preciosVigentes.size(), categoria.getCodigo(), fechaHasta);
@@ -141,7 +144,6 @@ public class FacturaServiceImpl implements FacturaService {
         List<FacturaDetalle> detalles = new ArrayList<>();
         BigDecimal subtotalNeto = BigDecimal.ZERO;
 
-        // --- 4a. Calcular Item: Consumo Eléctrico (KWh) ---
         ConceptoFacturable conceptoEnergia = conceptoFacturableRepository.findByCodigo("ELEC_KWH")
                 .orElseThrow(() -> new RuntimeException("Concepto 'ELEC_KWH' no encontrado en la base de datos."));
         BigDecimal precioEnergia = preciosVigentes.stream()
@@ -152,16 +154,14 @@ public class FacturaServiceImpl implements FacturaService {
         BigDecimal importeEnergia = consumoCalculado.multiply(precioEnergia).setScale(2, RoundingMode.HALF_UP);
 
         FacturaDetalle detalleEnergia = new FacturaDetalle();
-        detalleEnergia.setConceptoFacturable(conceptoEnergia); // Lombok generará setConceptoFacturable()
-        detalleEnergia.setDescripcion(String.format("%s (%s kWh @ %s)", conceptoEnergia.getDescripcion(), consumoCalculado.toString(), precioEnergia.toString()));
-        // --- CORRECCIÓN DEL TYPO ---
-        detalleEnergia.setCantidad(consumoCalculado); // Era 'consumado'
+        detalleEnergia.setConceptoFacturable(conceptoEnergia);
+        detalleEnergia.setDescripcion(String.format("%s (%s kWh @ %s)", conceptoEnergia.getDescripcion(), consumoCalculado, precioEnergia));
+        detalleEnergia.setCantidad(consumoCalculado);
         detalleEnergia.setPrecioUnitario(precioEnergia);
         detalleEnergia.setImporteNeto(importeEnergia);
         detalles.add(detalleEnergia);
         subtotalNeto = subtotalNeto.add(importeEnergia);
 
-        // --- 4b. Calcular Item: Cargo Fijo ---
         ConceptoFacturable conceptoCargoFijo = conceptoFacturableRepository.findByCodigo("CARGO_FIJO")
                 .orElseThrow(() -> new RuntimeException("Concepto 'CARGO_FIJO' no encontrado en la base de datos."));
         BigDecimal precioCargoFijo = preciosVigentes.stream()
@@ -171,7 +171,7 @@ public class FacturaServiceImpl implements FacturaService {
                 .orElseThrow(() -> new Exception("No se encontró precio vigente para 'CARGO_FIJO' en categoría " + categoria.getCodigo()));
 
         FacturaDetalle detalleCargoFijo = new FacturaDetalle();
-        detalleCargoFijo.setConceptoFacturable(conceptoCargoFijo); // Lombok generará setConceptoFacturable()
+        detalleCargoFijo.setConceptoFacturable(conceptoCargoFijo);
         detalleCargoFijo.setDescripcion(conceptoCargoFijo.getDescripcion());
         detalleCargoFijo.setCantidad(BigDecimal.ONE);
         detalleCargoFijo.setPrecioUnitario(precioCargoFijo);
@@ -179,7 +179,6 @@ public class FacturaServiceImpl implements FacturaService {
         detalles.add(detalleCargoFijo);
         subtotalNeto = subtotalNeto.add(precioCargoFijo);
 
-        // --- 5. Calcular Impuestos Globales (IVA, etc.) ---
         BigDecimal totalImpuestos = BigDecimal.ZERO;
         BigDecimal alicuotaIvaGeneral = new BigDecimal("0.21");
         if (socio.getCondicionIVA() == Socio.CondicionIVA.RESPONSABLE_INSCRIPTO) {
@@ -189,10 +188,8 @@ public class FacturaServiceImpl implements FacturaService {
         }
         BigDecimal totalFactura = subtotalNeto.add(totalImpuestos);
 
-
-        // --- 6. Crear Objeto Factura ---
         Factura factura = new Factura();
-        factura.setSocio(socio); // Lombok generará setSocio()
+        factura.setSocio(socio);
         factura.setSuministro(suministro);
         factura.setPuntoVenta(puntoVenta);
         factura.setComprobanteTipo(tipoComprobante);
@@ -204,18 +201,17 @@ public class FacturaServiceImpl implements FacturaService {
         factura.setImporteIVA(totalImpuestos);
         factura.setImporteTotal(totalFactura);
         factura.setEstado("GENERADA");
-        factura.setLecturaFinal(lecturaFinal); // Añadido para el Batch
+        factura.setLecturaFinal(lecturaFinal);
 
         for(FacturaDetalle detalle : detalles) {
             factura.addDetalle(detalle);
         }
 
-        log.info("Objeto Factura PRE-generado para Suministro NIS {}. Total: {}", suministro.getNis(), factura.getImporteTotal()); // Lombok generará getImporteTotal()
+        log.info("Objeto Factura PRE-generado para Suministro NIS {}. Total: {}", suministro.getNis(), factura.getImporteTotal());
 
         return factura;
     }
 
-    // --- MÉTODO DEL BATCH IMPLEMENTADO ---
     @Override
     @Transactional(readOnly = true)
     public Factura generarFacturaDesdeLectura(Lectura lecturaFinal,
@@ -255,7 +251,6 @@ public class FacturaServiceImpl implements FacturaService {
         List<FacturaDetalle> detalles = new ArrayList<>();
         BigDecimal subtotalNeto = BigDecimal.ZERO;
 
-        // Item: Consumo Eléctrico
         ConceptoFacturable conceptoEnergia = conceptoFacturableRepository.findByCodigo("ELEC_KWH")
                 .orElseThrow(() -> new RuntimeException("Concepto 'ELEC_KWH' no encontrado."));
         BigDecimal precioEnergia = preciosVigentes.stream()
@@ -266,14 +261,13 @@ public class FacturaServiceImpl implements FacturaService {
         BigDecimal importeEnergia = consumoCalculado.multiply(precioEnergia).setScale(2, RoundingMode.HALF_UP);
         FacturaDetalle detalleEnergia = new FacturaDetalle();
         detalleEnergia.setConceptoFacturable(conceptoEnergia);
-        detalleEnergia.setDescripcion(String.format("%s (%s kWh @ %s)", conceptoEnergia.getDescripcion(), consumoCalculado.toString(), precioEnergia.toString()));
+        detalleEnergia.setDescripcion(String.format("%s (%s kWh @ %s)", conceptoEnergia.getDescripcion(), consumoCalculado, precioEnergia));
         detalleEnergia.setCantidad(consumoCalculado);
         detalleEnergia.setPrecioUnitario(precioEnergia);
         detalleEnergia.setImporteNeto(importeEnergia);
         detalles.add(detalleEnergia);
         subtotalNeto = subtotalNeto.add(importeEnergia);
 
-        // Item: Cargo Fijo
         ConceptoFacturable conceptoCargoFijo = conceptoFacturableRepository.findByCodigo("CARGO_FIJO")
                 .orElseThrow(() -> new RuntimeException("Concepto 'CARGO_FIJO' no encontrado."));
         BigDecimal precioCargoFijo = preciosVigentes.stream()
@@ -290,7 +284,6 @@ public class FacturaServiceImpl implements FacturaService {
         detalles.add(detalleCargoFijo);
         subtotalNeto = subtotalNeto.add(precioCargoFijo);
 
-        // Impuestos
         BigDecimal totalImpuestos = BigDecimal.ZERO;
         BigDecimal alicuotaIvaGeneral = new BigDecimal("0.21");
         if (socio.getCondicionIVA() == Socio.CondicionIVA.RESPONSABLE_INSCRIPTO) {
@@ -300,7 +293,6 @@ public class FacturaServiceImpl implements FacturaService {
         }
         BigDecimal totalFactura = subtotalNeto.add(totalImpuestos);
 
-        // Crear Factura
         Factura factura = new Factura();
         factura.setSocio(socio);
         factura.setSuministro(suministro);
@@ -314,7 +306,7 @@ public class FacturaServiceImpl implements FacturaService {
         factura.setImporteIVA(totalImpuestos);
         factura.setImporteTotal(totalFactura);
         factura.setEstado("GENERADA");
-        factura.setLecturaFinal(lecturaFinal); // Campo @Transient para el Writer
+        factura.setLecturaFinal(lecturaFinal);
 
         for(FacturaDetalle detalle : detalles) {
             factura.addDetalle(detalle);
@@ -322,13 +314,12 @@ public class FacturaServiceImpl implements FacturaService {
         log.info("Objeto Factura PRE-generado (desde Batch) para Suministro NIS {}. Total: {}", suministro.getNis(), factura.getImporteTotal());
         return factura;
     }
-    // --- FIN MÉTODO BATCH ---
 
 
     @Override
     @Transactional(isolation = Isolation.SERIALIZABLE)
     public long obtenerProximoNumeroComprobante(PuntoVenta puntoVenta, ComprobanteTipo comprobanteTipo) {
-        log.debug("Obteniendo próximo número para PV {} y Tipo {}", puntoVenta.getNumero(), comprobanteTipo.getCodigoAfip()); // Lombok generará getNumero y getCodigoAfip
+        log.debug("Obteniendo próximo número para PV {} y Tipo {}", puntoVenta.getNumero(), comprobanteTipo.getCodigoAfip());
 
         PuntoVenta pvBloqueado = entityManager.find(PuntoVenta.class, puntoVenta.getId(), LockModeType.PESSIMISTIC_WRITE);
         if (pvBloqueado == null) {
@@ -338,7 +329,7 @@ public class FacturaServiceImpl implements FacturaService {
         Optional<Factura> ultimaFacturaOpt = facturaRepository.findTopByPuntoVentaAndComprobanteTipoOrderByNumeroComprobanteDesc(
                 pvBloqueado, comprobanteTipo);
 
-        long proximoNumero = ultimaFacturaOpt.map(factura -> factura.getNumeroComprobante() + 1).orElse(1L); // Lombok generará getNumeroComprobante
+        long proximoNumero = ultimaFacturaOpt.map(factura -> factura.getNumeroComprobante() + 1).orElse(1L);
 
         log.info("Próximo número determinado para PV {}: {}", pvBloqueado.getNumero(), proximoNumero);
         return proximoNumero;
@@ -348,31 +339,104 @@ public class FacturaServiceImpl implements FacturaService {
     @Override
     @Transactional(isolation = Isolation.SERIALIZABLE)
     public Factura guardarFacturaYActualizarPuntoVenta(Factura factura, PuntoVenta puntoVenta) {
-        log.info("Intentando guardar factura y actualizar PV {}", puntoVenta.getNumero()); // Lombok generará getNumero
+        log.info("Iniciando guardado transaccional de Factura para PV {}", puntoVenta.getNumero());
 
+        // 1. Bloquear PV y Asignar Número
         PuntoVenta pvBloqueado = entityManager.find(PuntoVenta.class, puntoVenta.getId(), LockModeType.PESSIMISTIC_WRITE);
         if (pvBloqueado == null) {
             throw new RuntimeException("Punto de Venta no encontrado o bloqueo fallido al guardar: ID " + puntoVenta.getId());
         }
 
-        long numeroAsignar = obtenerProximoNumeroComprobante(pvBloqueado, factura.getComprobanteTipo()); // Lombok generará getComprobanteTipo
-        factura.setNumeroComprobante(numeroAsignar); // Lombok generará setNumeroComprobante
+        long numeroAsignar = obtenerProximoNumeroComprobante(pvBloqueado, factura.getComprobanteTipo());
+        factura.setNumeroComprobante(numeroAsignar);
+        factura.setEstado("EMITIDA_PENDIENTE"); // (Pendiente de AFIP/Cierre)
         log.debug("Número {} asignado a la factura", numeroAsignar);
 
-        factura.setEstado("EMITIDA_PENDIENTE"); // Lombok generará setEstado
-
+        // 2. Guardar Factura
         Factura facturaGuardada = facturaRepository.save(factura);
-        log.info("Factura ID {} guardada con Número {}", facturaGuardada.getId(), facturaGuardada.getNumeroComprobante()); // Lombok generará getId y getNumeroComprobante
+        log.info("Factura ID {} guardada con Número {}", facturaGuardada.getId(), facturaGuardada.getNumeroComprobante());
 
-        pvBloqueado.setUltimoNumeroEmitido(numeroAsignar); // Lombok generará setUltimoNumeroEmitido
+        // 3. Actualizar Punto de Venta
+        pvBloqueado.setUltimoNumeroEmitido(numeroAsignar);
         puntoVentaRepository.save(pvBloqueado);
         log.info("Último número actualizado en PV {} a {}", pvBloqueado.getNumero(), numeroAsignar);
 
-        // --- LLAMADA AL NUEVO SERVICIO ---
+        // 4. Registrar Movimiento en Cuenta Corriente (Fase 3)
+        // (Llamada corregida en el paso anterior)
         ctaCteService.registrarDebePorFactura(facturaGuardada);
-        // El log.warn("Falta implementar...") ya no es necesario aquí.
+        log.info("Movimiento 'DEBE' registrado en CtaCte del Socio ID {}", factura.getSocio().getId());
+
+
+        // --- 5. INTEGRACIÓN FASE 5: Generar Asiento Contable ---
+        try {
+            log.debug("Iniciando generación de asiento contable para Factura ID {}", facturaGuardada.getId());
+            generarAsientoContableParaFactura(facturaGuardada);
+        } catch (Exception e) {
+            log.error("¡FALLO CRÍTICO! Error al generar asiento contable: {}. ¡Haciendo Rollback!", e.getMessage());
+            throw new RuntimeException("Error al generar asiento contable (Rollback forzado): " + e.getMessage(), e);
+        }
 
         return facturaGuardada;
+    }
+
+    /**
+     * Método privado helper para la lógica de generación de asientos (FASE 5).
+     *
+     * --- ESTE MÉTODO ESTÁ AHORA CORREGIDO ---
+     */
+    private void generarAsientoContableParaFactura(Factura factura) throws RuntimeException {
+        // 1. Obtener parámetros contables (preguntamos a modulo-contabilidad)
+        PlanDeCuentas ctaClientes = parametroContableService.getCuentaByClave("CTA_CLIENTES_VENTA");
+        PlanDeCuentas ctaVentaEnergia = parametroContableService.getCuentaByClave("CTA_VENTA_ENERGIA");
+        // --- CORRECCIÓN 1: Faltaba definir ctaIvaDebito ---
+        PlanDeCuentas ctaIvaDebito = parametroContableService.getCuentaByClave("CTA_IVA_DEBITO");
+        // TODO: Mapear otros conceptos (Cargo Fijo, Alumbrado, etc.)
+
+        // 2. Armar el Asiento DTO
+        String leyendaAsiento = String.format("Factura %s %s-%08d | Socio: %s",
+                factura.getComprobanteTipo().getLetra(),
+                factura.getPuntoVenta().getNumero(),
+                factura.getNumeroComprobante(),
+                factura.getSocio().getCuit());
+
+        // --- CORRECCIÓN 2: Faltaba instanciar el DTO ---
+        AsientoDTO asientoDTO = new AsientoDTO();
+        asientoDTO.setFecha(factura.getFechaEmision());
+        asientoDTO.setDescripcion(leyendaAsiento);
+
+        // --- CORRECCIÓN 3: Typo 'PlanDeCte' por 'asientoDTO' ---
+        asientoDTO.setOrigen("modulo_facturacion");
+
+        // 3. Crear Renglones (Debe y Haber)
+
+        // Renglón 1: Clientes (Debe)
+        asientoDTO.addDetalle(
+                ctaClientes,
+                "Debe por Venta",
+                factura.getImporteTotal(), // Debe
+                BigDecimal.ZERO            // Haber
+        );
+
+        // Renglón 2: Venta de Energía (Haber)
+        // (Simplificación: asumimos que ImporteNeto es SOLO Venta de Energía)
+        asientoDTO.addDetalle(
+                ctaVentaEnergia,
+                "Venta Neta de Energía",
+                BigDecimal.ZERO,           // Debe
+                factura.getImporteNeto()   // Haber
+        );
+
+        // Renglón 3: IVA Débito Fiscal (Haber)
+        asientoDTO.addDetalle(
+                ctaIvaDebito, // <-- Ahora está definida
+                "IVA Débito Fiscal 21%",
+                BigDecimal.ZERO,           // Debe
+                factura.getImporteIVA()    // Haber
+        );
+
+        // 4. Llamar al servicio de contabilidad para registrar el asiento
+        asientoService.registrarAsientoManual(asientoDTO); // <-- Ahora está definida
+        log.info("Asiento contable registrado exitosamente para Factura ID {}", factura.getId());
     }
 
 
@@ -400,4 +464,3 @@ public class FacturaServiceImpl implements FacturaService {
                 .orElseThrow(() -> new RuntimeException("Tipo de Comprobante AFIP no encontrado: " + codigoAfip));
     }
 }
-

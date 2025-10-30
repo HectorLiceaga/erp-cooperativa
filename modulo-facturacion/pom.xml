@@ -32,10 +32,24 @@
             <version>${project.version}</version>
         </dependency>
 
+        <!--
+          Permite a Facturación "ver" a Contabilidad
+        -->
+        <dependency>
+            <groupId>com.cooperativa.erp</groupId>
+            <artifactId>modulo-contabilidad</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
         <!-- Spring Data JPA -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <!-- Spring Web (necesaria para el controller del batch) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
         <!-- Spring Batch -->
         <dependency>
@@ -43,10 +57,7 @@
             <artifactId>spring-boot-starter-batch</artifactId>
         </dependency>
 
-        <!--
-          DEPENDENCIA DE LOMBOK:
-          Asegúrate de que esta dependencia exista.
-        -->
+        <!-- Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
@@ -70,21 +81,11 @@
                 <configuration>
                     <source>17</source>
                     <target>17</target>
-                    <!--
-                       CONFIGURACIÓN CRÍTICA:
-                       Esto le dice a Maven que use Lombok para "generar"
-                       los getters/setters ANTES de compilar el resto del código.
-                       Esta es la solución a todos los "cannot find symbol"
-                    -->
+                    <!-- Configuración de Lombok -->
                     <annotationProcessorPaths>
                         <path>
                             <groupId>org.projectlombok</groupId>
                             <artifactId>lombok</artifactId>
-                            <!--
-                               Usar la variable definida en el 'parent' pom.
-                               Asegúrate de tener <lombok.version>...</lombok.version>
-                               en la sección <properties> de tu pom padre.
-                            -->
                             <version>${lombok.version}</version>
                         </path>
                     </annotationProcessorPaths>
