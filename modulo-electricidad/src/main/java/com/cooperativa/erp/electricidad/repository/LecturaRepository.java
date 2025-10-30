@@ -2,34 +2,47 @@ package com.cooperativa.erp.electricidad.repository;
 
 import com.cooperativa.erp.electricidad.entity.Lectura;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Repositorio para la entidad Lectura.
+ * CORREGIDO: Incluye los métodos que FacturaServiceImpl necesita.
+ */
 @Repository
 public interface LecturaRepository extends JpaRepository<Lectura, Long> {
 
-    /**
-     * Busca la última lectura registrada para un medidor ANTES de una fecha dada.
-     * Usado para encontrar la lectura inmediatamente anterior a una nueva.
-     */
-    Optional<Lectura> findFirstByMedidorIdAndFechaLecturaBeforeOrderByFechaLecturaDesc(Long medidorId, LocalDate fecha);
+    // --- Métodos para Carga/Validación (del ServiceImpl) ---
 
     /**
-     * Busca todas las lecturas para un medidor dentro de un rango de fechas.
+     * Busca la última lectura registrada (por período) para un contrato.
      */
-    List<Lectura> findByMedidorIdAndFechaLecturaBetweenOrderByFechaLecturaAsc(Long medidorId, LocalDate fechaDesde, LocalDate fechaHasta);
+    Optional<Lectura> findTopByContratoElectricidadIdOrderByFechaPeriodoDesc(Long contratoId);
+
+    // --- Métodos para Spring Batch (del ServiceImpl) ---
 
     /**
-     * Busca la última lectura registrada para un medidor, independientemente de la fecha.
-     * Spring Data JPA infiere: SELECT * FROM elec_lecturas WHERE medidor_id = ? ORDER BY fecha_lectura DESC LIMIT 1
-     * @param medidorId ID del medidor
-     * @return Un Optional con la última lectura si existe.
+     * Busca todas las lecturas de un período que aún no han sido facturadas.
      */
-    Optional<Lectura> findTopByMedidorIdOrderByFechaLecturaDesc(Long medidorId);
+    @Query("SELECT l FROM Lectura l WHERE l.fechaPeriodo = :periodo AND l.facturada = false")
+    List<Lectura> findLecturasPendientesDeFacturacion(LocalDate periodo);
+
+
+    // --- MÉTODOS AÑADIDOS QUE 'FacturaServiceImpl' NECESITA ---
+
+    /**
+     * Busca la última lectura (ordenada por período) registrada ANTES de una fecha de período dada.
+     */
+    Optional<Lectura> findTopByContratoElectricidadIdAndFechaPeriodoBeforeOrderByFechaPeriodoDesc(Long contratoId, LocalDate fechaAntesDe);
+
+    /**
+     * Busca la primera lectura (ordenada por período) registrada EN O DESPUÉS de una fecha de período dada.
+     */
+    Optional<Lectura> findTopByContratoElectricidadIdAndFechaPeriodoAfterOrderByFechaPeriodoAsc(Long contratoId, LocalDate fechaDesde);
 
 }
-
 
