@@ -3,7 +3,6 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    <!-- Hereda del POM padre -->
     <parent>
         <groupId>com.cooperativa.erp</groupId>
         <artifactId>erp-cooperativa-parent</artifactId>
@@ -12,44 +11,87 @@
 
     <artifactId>modulo-facturacion</artifactId>
     <name>Modulo: Facturacion</name>
-    <description>Módulo encargado de la lógica de facturación</description>
+
+    <properties>
+        <!-- Asegúrate de que la versión de Lombok esté definida,
+             probablemente en tu pom.xml padre -->
+        <!-- <lombok.version>1.18.32</lombok.version> -->
+    </properties>
 
     <dependencies>
-        <!-- Dependencias de Spring Boot -->
+        <!-- Dependencia del Módulo Core -->
+        <dependency>
+            <groupId>com.cooperativa.erp</groupId>
+            <artifactId>modulo-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <!-- Dependencia del Módulo Electricidad -->
+        <dependency>
+            <groupId>com.cooperativa.erp</groupId>
+            <artifactId>modulo-electricidad</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- Spring Data JPA -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
+        <!-- Spring Batch -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-batch</artifactId> <!-- Incluido para el futuro proceso batch -->
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-validation</artifactId> <!-- Para validaciones de entidades si es necesario -->
+            <artifactId>spring-boot-starter-batch</artifactId>
         </dependency>
 
-        <!-- Lombok (heredado de parent) -->
+        <!--
+          DEPENDENCIA DE LOMBOK:
+          Asegúrate de que esta dependencia exista.
+        -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
         </dependency>
 
-        <!-- *** DEPENDENCIAS INTERNAS *** -->
+        <!-- Validación -->
         <dependency>
-            <groupId>com.cooperativa.erp</groupId>
-            <artifactId>modulo-core</artifactId>
-            <!-- La versión es gestionada por el parent -->
-        </dependency>
-        <!-- ****** ¡DEPENDENCIA FALTANTE AÑADIDA! ****** -->
-        <dependency>
-            <groupId>com.cooperativa.erp</groupId>
-            <artifactId>modulo-electricidad</artifactId>
-            <!-- La versión es gestionada por el parent -->
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
 
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version> <!-- La versión que ya estás usando -->
+                <configuration>
+                    <source>17</source>
+                    <target>17</target>
+                    <!--
+                       CONFIGURACIÓN CRÍTICA:
+                       Esto le dice a Maven que use Lombok para "generar"
+                       los getters/setters ANTES de compilar el resto del código.
+                       Esta es la solución a todos los "cannot find symbol"
+                    -->
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <!--
+                               Usar la variable definida en el 'parent' pom.
+                               Asegúrate de tener <lombok.version>...</lombok.version>
+                               en la sección <properties> de tu pom padre.
+                            -->
+                            <version>${lombok.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 
 </project>
 

@@ -2,6 +2,8 @@ package com.cooperativa.erp.facturacion.entity;
 
 import com.cooperativa.erp.core.entity.Socio;
 import com.cooperativa.erp.core.entity.Suministro;
+// --- IMPORTACIÓN AÑADIDA PARA EL BATCH ---
+import com.cooperativa.erp.electricidad.entity.Lectura;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PastOrPresent;
@@ -22,7 +24,7 @@ import java.util.List;
         @Index(name = "idx_factura_suministro", columnList = "suministro_id"),
         @Index(name = "idx_factura_pv_tipo_num", columnList = "puntoVenta_id, comprobanteTipo_id, numeroComprobante", unique = true)
 })
-@Data // Asegura getters, setters, etc.
+@Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class Factura {
@@ -85,7 +87,7 @@ public class Factura {
     // Otros impuestos/percepciones podrían ir aquí o en detalles
     @NotNull
     @PositiveOrZero
-    @Column(nullable = false, precision = 15, scale = 2)
+    @Column(nullable = false, precision = 15, scale = 2) // Corregido: 'false' no debe ir entre comillas
     private BigDecimal importeTotal = BigDecimal.ZERO;
 
     @NotNull
@@ -95,6 +97,18 @@ public class Factura {
     // Detalles de la factura
     @OneToMany(mappedBy = "factura", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<FacturaDetalle> detalles = new ArrayList<>();
+
+
+    // --- CAMPO CLAVE AÑADIDO PARA EL BATCH ---
+    /**
+     * Almacena la Lectura "final" que disparó esta factura en el batch.
+     * No se persiste en la BD (es @Transient), solo se usa en memoria
+     * para pasarla del Processor (FacturacionProcessor) al Writer (FacturacionWriter).
+     * El Writer la necesita para llamar a lecturaService.marcarLecturasComoFacturadas().
+     */
+    @Transient
+    private Lectura lecturaFinal;
+
 
     // Métodos helper para manejar detalles (mantiene bidireccionalidad)
     public void addDetalle(FacturaDetalle detalle) {

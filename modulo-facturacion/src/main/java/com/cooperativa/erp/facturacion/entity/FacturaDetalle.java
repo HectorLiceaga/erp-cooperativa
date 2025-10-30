@@ -1,24 +1,23 @@
 package com.cooperativa.erp.facturacion.entity;
 
-// *** ¡IMPORT AÑADIDO/VERIFICADO! ***
 import com.cooperativa.erp.electricidad.entity.ConceptoFacturable;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
 
 import java.math.BigDecimal;
 
 @Entity
 @Table(name = "fac_factura_detalles", indexes = {
-        @Index(name = "idx_facturadetalle_factura", columnList = "factura_id"),
-        @Index(name = "idx_facturadetalle_concepto", columnList = "conceptoFacturable_id")
+        @Index(name = "idx_detalle_factura", columnList = "factura_id"),
+        @Index(name = "idx_detalle_concepto", columnList = "concepto_id")
 })
-@Data // Asegura getters, setters, etc.
+@Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class FacturaDetalle {
@@ -30,43 +29,32 @@ public class FacturaDetalle {
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "factura_id", nullable = false)
-    private Factura factura; // Relación bidireccional
+    private Factura factura;
 
     @NotNull
-    @ManyToOne(fetch = FetchType.EAGER) // Es útil traer el concepto al ver el detalle
-    @JoinColumn(name = "conceptoFacturable_id", nullable = false)
-    private ConceptoFacturable conceptoFacturable; // El concepto que se está facturando
+    @ManyToOne(fetch = FetchType.EAGER) // Traer el concepto
+    @JoinColumn(name = "concepto_id", nullable = false)
+    private ConceptoFacturable conceptoFacturable;
 
     @NotBlank
-    @Column(nullable = false, length = 255)
-    private String descripcion; // Descripción detallada (puede incluir cantidad, precio unitario)
-
-    @NotNull
-    @Column(nullable = false, precision = 15, scale = 4) // Escala 4 para precios/cantidades precisas
-    private BigDecimal cantidad = BigDecimal.ONE; // Por defecto 1 (para cargos fijos, etc.)
+    @Size(max = 255)
+    @Column(nullable = false)
+    private String descripcion; // Descripción del item (ej. "Cargo Fijo", "Consumo 100 kWh @ 50.00")
 
     @NotNull
     @Column(nullable = false, precision = 15, scale = 4)
-    private BigDecimal precioUnitario = BigDecimal.ZERO;
-
-    @NotNull
-    @Column(nullable = false, precision = 15, scale = 2) // Escala 2 para importes finales
-    private BigDecimal importeNeto = BigDecimal.ZERO;
+    private BigDecimal cantidad;
 
     @NotNull
     @PositiveOrZero
-    @Column(nullable = false, precision = 5, scale = 2) // Ej: 21.00
-    private BigDecimal alicuotaIVA = BigDecimal.ZERO;
+    @Column(nullable = false, precision = 15, scale = 4)
+    private BigDecimal precioUnitario;
 
     @NotNull
     @PositiveOrZero
     @Column(nullable = false, precision = 15, scale = 2)
-    private BigDecimal importeIVA = BigDecimal.ZERO;
+    private BigDecimal importeNeto;
 
-    // Podríamos tener campos para otros impuestos específicos del item
-
-    @NotNull
-    @Column(nullable = false, precision = 15, scale = 2)
-    private BigDecimal importeTotal = BigDecimal.ZERO; // Neto + IVA + Otros Impuestos del Item
+    // TODO: Añadir campos para alícuota de IVA, importe de IVA, etc.
 }
 
