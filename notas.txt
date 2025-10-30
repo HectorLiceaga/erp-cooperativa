@@ -1,0 +1,118 @@
+ 
+Asociado:
+
+    - nombre
+    - cuit
+    - condIVA
+    - List<Suministros>
+
+    - DNI
+    - Activo(flag)
+    - esGob
+    - esProv
+    - esEmpleado
+    - soloTitular(puede que no sea el dueño)
+    - List<Direccion>
+        - Direccion:
+            - Calle
+            - Numero
+            - CP
+            - Localidad
+            -
+    - Contabilidad:
+        - cuentaACobrar
+        - cuentaAPagar
+        - Monto capital cooperativo
+    - Datos Proveedor
+        - Nro
+        - Ganancias:
+            - Excento
+            - Inscripto
+            - No Inscripto
+            - No Excento
+        - Regimen de Ganancias
+    - Medios de Contacto
+    - Fecha de Ingreso
+    - List<Familiares>
+
+Suministro:
+
+    - Socio
+    - identificadorUnico(NIS)
+    - fechaAlta
+    - estado(ENUM)
+
+    - fechaBaja
+    - RazónBaja
+    - Medidor(puede no utilizar medidor, por ej.: servicio sepelio)
+    - Titular(se solapa con el flag de socio, aca aparece una de las redundancias del sist actual)
+    - Inmueble(tipo Direccion)
+    - Ruta(número, se ordenan los suministros por rutas para el reparto de boletas)
+    - Folio/Subruta(número)
+    - Zona(esto está para cuando hay suministros en una localidad distinta a la de la coop, pero que ésta le facturta)
+    - OrdenMedición(no entiendo para que está)
+    - Tarifa
+    - Tipo Residencial(ENUM, Inclusion, Exclusion: de ambos hay un montón de tipos)
+    - TipoFase(para mi debería de estar en Medidor)
+    - Tipo de Transformador(pérdida): es para calcular los kwh de pérdida del trafo en los campos
+    - Porcentaje sobre Transformador
+    Serie de flags(el prog anterior usaba prog estructurada):
+    - Enviar fra mail, no enviar fra, violencia genero, tarifa cero(no se q es), bomberos(los bros vol pueden tener un descuento casi total), bonif luz y fuerza(por el sind tienen desc) titular fallecido, min seguridad, no enviar avisos de corte, fecha fallecido, sum afectado al riego agrícola(no se para q es), sum afectado al sector sanitario, tiene gas de red(lleva desc en ciertos momentos del año), excento cuota capital, excento 7290/9038(un imp),excento de corte
+
+Medidor:
+
+    - numero
+    - marca
+    - modelo
+    - constanteMultiplicacion
+    - suministro
+
+    - numero de serie
+    - fase
+    - arquitectura(ENUM analógico, digital, potencia)
+
+Lectura:
+
+    - Medidor
+    - fechaLectura
+    - estado(aca se usa para definir si fue facturado o no)
+
+    - periodo(mes de facturacion)
+    - lecturaActual(número del medidor)
+    - lectura anterior(numero, innecesario si se trae desde la anterior, dar la opción de forzar la lectura por si se cambia medidor y tiene un número que no se condice o por si es nuevo o por cambio medidor usado/nuevo)
+
+Factura:
+
+    - Socio
+    - Suministro
+    - PuntoVenta
+    - ComprobanteTipo
+    - fechaEmision
+    - numeroComprobante
+    - fechaVenc(se necesitan 2)
+    - fechaDesde y fechaHasta (no se xq los propusiste?)
+    - inporteNeto
+    - importeIVA
+    - importeTotal
+    - estado
+    - List<FacturaDetalle>
+
+    - C.E.S.P.(es un núemro obtenido en ARCA, con vencimiento)
+    - Periodo
+    - fechaContabilizacion
+    - Cuenta(a la que se le va a imputar)
+    - Tipo(fra, nota credito, fra de proveedor, nota debito)
+
+FacturaDetalle:
+
+    - FActura
+    - ConceptoFacturable
+    - desc
+    - cant
+    - precioUnitario
+    - importeNeto
+    - alicuotaIVA
+    - importeIVA
+    - importeTotal
+
+
