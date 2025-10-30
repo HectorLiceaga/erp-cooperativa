@@ -24,6 +24,13 @@
             <version>${project.version}</version>
         </dependency>
 
+        <!-- === DEPENDENCIA AÑADIDA === -->
+        <!-- Esta dependencia incluye Spring MVC, @RestController, y ServletUriComponentsBuilder -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
         <!-- Dependencias de Spring (Heredadas del padre, pero explícitas) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -62,3 +69,4 @@
     </build>
 
 </project>
+
