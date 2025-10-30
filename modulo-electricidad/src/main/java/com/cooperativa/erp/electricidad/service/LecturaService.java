@@ -1,46 +1,35 @@
 package com.cooperativa.erp.electricidad.service;
 
 import com.cooperativa.erp.electricidad.entity.Lectura;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
 /**
- * Interfaz para el servicio de gestión de Lecturas.
+ * Interfaz (API Interna) para la lógica de negocio de Lecturas.
+ * CORREGIDO: Define la API completa que 'FacturaServiceImpl' espera.
  */
 public interface LecturaService {
 
-    /**
-     * Busca la última lectura registrada para un medidor antes de una fecha dada.
-     * @param medidorId ID del medidor.
-     * @param fecha Fecha límite (exclusiva).
-     * @return Optional con la última lectura si existe, Optional vacío si no.
-     */
-    Optional<Lectura> buscarUltimaLecturaAntesDe(Long medidorId, LocalDate fecha);
+    // --- Métodos para Fase 3 (Spring Batch) ---
+    List<Lectura> getLecturasParaFacturar(LocalDate periodo);
+    void marcarLecturasComoFacturadas(List<Lectura> lecturas);
+
+    // --- Métodos para Carga Manual (Controller) ---
+    Lectura registrarLectura(Long contratoId, BigDecimal estadoActual, LocalDate fechaToma, LocalDate periodo, String tipoLectura)
+            throws IllegalArgumentException;
+
+    // --- MÉTODOS CORREGIDOS QUE 'FacturaServiceImpl' NECESITA ---
 
     /**
-     * Busca todas las lecturas registradas para un medidor dentro de un rango de fechas.
-     * @param medidorId ID del medidor.
-     * @param fechaDesde Fecha de inicio del rango (inclusiva).
-     * @param fechaHasta Fecha de fin del rango (inclusiva).
-     * @return Lista de lecturas encontradas, ordenada por fecha ascendente.
+     * Busca la última lectura (por período) ANTES de la fecha de período dada.
      */
-    List<Lectura> buscarLecturasPorRango(Long medidorId, LocalDate fechaDesde, LocalDate fechaHasta);
+    Optional<Lectura> buscarUltimaLecturaAntesDe(Long contratoId, LocalDate fechaAntesDe);
 
     /**
-     * Registra una nueva lectura para un medidor, aplicando validaciones de secuencia.
-     * @param medidorId ID del medidor.
-     * @param fechaLectura Fecha de la nueva lectura.
-     * @param estado Estado (valor) de la nueva lectura.
-     * @param tipoLectura Tipo de lectura (NORMAL, RETIRO, etc.).
-     * @return La entidad Lectura guardada.
-     * @throws IllegalArgumentException Si los datos son inválidos, el medidor no existe,
-     * o si la fecha o estado violan la secuencia.
+     * Busca la primera lectura (por período) EN O DESPUÉS de la fecha de período dada.
      */
-    Lectura registrarLectura(Long medidorId, LocalDate fechaLectura, BigDecimal estado, String tipoLectura)
-            throws IllegalArgumentException; // <-- Asegúrate que sea IllegalArgumentException
-
+    Optional<Lectura> buscarPrimeraLecturaDesde(Long contratoId, LocalDate fechaDesde);
 }
 

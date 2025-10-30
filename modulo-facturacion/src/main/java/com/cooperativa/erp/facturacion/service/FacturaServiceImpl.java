@@ -74,7 +74,7 @@ public class FacturaServiceImpl implements FacturaService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true) // La generación NO guarda la factura aquí
     public Factura generarFacturaPeriodo(Suministro suministro,
                                          LocalDate fechaDesde,
                                          LocalDate fechaHasta,
@@ -101,32 +101,45 @@ public class FacturaServiceImpl implements FacturaService {
 
         Medidor medidor = contratoElec.getMedidor();
         CategoriaTarifaria categoria = contratoElec.getCategoriaTarifaria();
-        // *** CORRECCIÓN GETTER ***
-        log.debug("Contrato activo encontrado. Medidor: {}, Categoría: {}", medidor.getNumero(), categoria.getCodigo());
+        log.debug("Contrato activo encontrado. ID: {}. Medidor: {}, Categoría: {}", contratoElec.getId(), medidor.getNumero(), categoria.getCodigo());
 
 
         // --- 3. Obtener Lecturas y Calcular Consumo ---
-        List<Lectura> lecturas = lecturaService.buscarLecturasPorRango(medidor.getId(), fechaDesde, fechaHasta);
+        // TODO: Esta lógica necesita refinamiento: buscar la ÚLTIMA lectura ANTERIOR a fechaDesde
+        //       y la PRIMERA lectura EN o DESPUÉS de fechaHasta.
 
-        if (lecturas.size() < 2) {
-            log.error("No se encontraron suficientes lecturas (inicial y final) para el período {} - {} en medidor {}", fechaDesde, fechaHasta, medidor.getNumero());
-            throw new Exception("No se encontraron suficientes lecturas (inicial y final) para el período.");
+        // --- LLAMADAS AL SERVICIO CORREGIDAS ---
+        // (Usa contratoElec.getId() en lugar de medidor.getId())
+        Optional<Lectura> optLecturaInicial = lecturaService.buscarUltimaLecturaAntesDe(contratoElec.getId(), fechaDesde);
+        Optional<Lectura> optLecturaFinal = lecturaService.buscarPrimeraLecturaDesde(contratoElec.getId(), fechaHasta);
+
+        if (optLecturaInicial.isEmpty() || optLecturaFinal.isEmpty()) {
+            log.error("No se encontraron lecturas inicial/final para el período {} - {} en contrato {}", fechaDesde, fechaHasta, contratoElec.getId());
+            throw new Exception("No se encontraron lecturas para definir el período de consumo.");
         }
 
-        Lectura lecturaInicial = lecturas.get(0);
-        Lectura lecturaFinal = lecturas.get(lecturas.size() - 1);
+        Lectura lecturaInicial = optLecturaInicial.get();
+        Lectura lecturaFinal = optLecturaFinal.get();
 
-        // *** CORRECCIÓN GETTER ***
-        BigDecimal consumoCalculado = (lecturaFinal.getEstado().subtract(lecturaInicial.getEstado()))
+        // --- GETTERS CORREGIDOS ---
+        // (Usan getFechaPeriodo() y getEstadoActual())
+        if (!lecturaFinal.getFechaPeriodo().isAfter(lecturaInicial.getFechaPeriodo()) ||
+                lecturaFinal.getEstadoActual().compareTo(lecturaInicial.getEstadoActual()) < 0) {
+            log.error("Lecturas inconsistentes: Inicial ({}, {}) vs Final ({}, {})",
+                    lecturaInicial.getFechaPeriodo(), lecturaInicial.getEstadoActual(),
+                    lecturaFinal.getFechaPeriodo(), lecturaFinal.getEstadoActual());
+            throw new Exception("Lecturas de inicio/fin de período inconsistentes.");
+        }
+
+        // --- GETTERS CORREGIDOS ---
+        BigDecimal consumoCalculado = (lecturaFinal.getEstadoActual().subtract(lecturaInicial.getEstadoActual()))
                 .multiply(medidor.getConstanteMultiplicacion());
 
-        // *** CORRECCIÓN GETTER ***
         log.info("Consumo calculado: {} kWh ( ({} - {}) * {} )", consumoCalculado.setScale(2, RoundingMode.HALF_UP),
-                lecturaFinal.getEstado(), lecturaInicial.getEstado(), medidor.getConstanteMultiplicacion());
+                lecturaFinal.getEstadoActual(), lecturaInicial.getEstadoActual(), medidor.getConstanteMultiplicacion());
 
 
         // --- 4. Obtener Precios Vigentes y Calcular Items ---
-        // *** CORRECCIÓN GETTER ***
         List<PrecioConcepto> preciosVigentes = precioConceptoService.obtenerPreciosVigentes(categoria.getId(), fechaHasta);
         log.debug("Se encontraron {} precios vigentes para la categoría {} en fecha {}",
                 preciosVigentes.size(), categoria.getCodigo(), fechaHasta);
@@ -135,14 +148,14 @@ public class FacturaServiceImpl implements FacturaService {
         BigDecimal subtotalNeto = BigDecimal.ZERO;
 
         // --- 4a. Calcular Item: Consumo Eléctrico (KWh) ---
-        ConceptoFacturable conceptoEnergia = conceptoFacturableRepository.findByCodigo("ELEC_KWH")
+        // (Sin cambios aquí, la lógica parece correcta)
+        ConceptoFacturable conceptoEnergia = conceptoFacturableRepository.findByCodigo("ELEC_KWH") // Asumimos código fijo
                 .orElseThrow(() -> new RuntimeException("Concepto 'ELEC_KWH' no encontrado en la base de datos."));
 
         BigDecimal precioEnergia = preciosVigentes.stream()
                 .filter(p -> p.getConceptoFacturable().equals(conceptoEnergia))
                 .map(PrecioConcepto::getPrecioUnitario)
                 .findFirst()
-                // *** CORRECCIÓN GETTER ***
                 .orElseThrow(() -> new Exception("No se encontró precio vigente para 'ELEC_KWH' en categoría " + categoria.getCodigo()));
 
         BigDecimal importeEnergia = consumoCalculado.multiply(precioEnergia).setScale(2, RoundingMode.HALF_UP);
@@ -158,14 +171,14 @@ public class FacturaServiceImpl implements FacturaService {
 
 
         // --- 4b. Calcular Item: Cargo Fijo ---
-        ConceptoFacturable conceptoCargoFijo = conceptoFacturableRepository.findByCodigo("CARGO_FIJO")
+        // (Sin cambios aquí)
+        ConceptoFacturable conceptoCargoFijo = conceptoFacturableRepository.findByCodigo("CARGO_FIJO") // Asumimos código fijo
                 .orElseThrow(() -> new RuntimeException("Concepto 'CARGO_FIJO' no encontrado en la base de datos."));
 
         BigDecimal precioCargoFijo = preciosVigentes.stream()
                 .filter(p -> p.getConceptoFacturable().equals(conceptoCargoFijo))
                 .map(PrecioConcepto::getPrecioUnitario)
                 .findFirst()
-                // *** CORRECCIÓN GETTER ***
                 .orElseThrow(() -> new Exception("No se encontró precio vigente para 'CARGO_FIJO' en categoría " + categoria.getCodigo()));
 
         FacturaDetalle detalleCargoFijo = new FacturaDetalle();
@@ -179,11 +192,14 @@ public class FacturaServiceImpl implements FacturaService {
 
 
         // --- 5. Calcular Impuestos Globales (IVA, etc.) ---
-        BigDecimal totalImpuestos;
+        // (Sin cambios aquí)
+        BigDecimal totalImpuestos = BigDecimal.ZERO;
+        BigDecimal alicuotaIvaGeneral = new BigDecimal("0.21"); // Placeholder
+
         if (socio.getCondicionIVA() == Socio.CondicionIVA.RESPONSABLE_INSCRIPTO) {
-            totalImpuestos = subtotalNeto.multiply(new BigDecimal("0.21")).setScale(2, RoundingMode.HALF_UP);
+            totalImpuestos = subtotalNeto.multiply(alicuotaIvaGeneral).setScale(2, RoundingMode.HALF_UP);
         } else {
-            totalImpuestos = subtotalNeto.multiply(new BigDecimal("0.21")).setScale(2, RoundingMode.HALF_UP);
+            totalImpuestos = subtotalNeto.multiply(alicuotaIvaGeneral).setScale(2, RoundingMode.HALF_UP);
         }
         BigDecimal totalFactura = subtotalNeto.add(totalImpuestos);
 
@@ -194,20 +210,25 @@ public class FacturaServiceImpl implements FacturaService {
         factura.setSuministro(suministro);
         factura.setPuntoVenta(puntoVenta);
         factura.setComprobanteTipo(tipoComprobante);
+        // El número se asigna antes de guardar
         factura.setFechaEmision(LocalDate.now());
-        factura.setPeriodoDesde(fechaDesde);
-        factura.setPeriodoHasta(fechaHasta);
+
+        // --- GETTERS CORREGIDOS ---
+        // (Usamos fechas de período de las lecturas reales)
+        factura.setPeriodoDesde(lecturaInicial.getFechaPeriodo());
+        factura.setPeriodoHasta(lecturaFinal.getFechaPeriodo());
+
         factura.setFechaVencimiento(fechaVencimiento);
         factura.setImporteNeto(subtotalNeto);
         factura.setImporteIVA(totalImpuestos);
         factura.setImporteTotal(totalFactura);
-        factura.setEstado("PENDIENTE");
+        factura.setEstado("GENERADA");
 
         for(FacturaDetalle detalle : detalles) {
             factura.addDetalle(detalle);
         }
 
-        log.info("Objeto Factura pre-generado para Suministro NIS {}. Total: {}", suministro.getNis(), factura.getImporteTotal());
+        log.info("Objeto Factura PRE-generado para Suministro NIS {}. Total: {}", suministro.getNis(), factura.getImporteTotal());
 
         return factura;
     }
@@ -245,6 +266,8 @@ public class FacturaServiceImpl implements FacturaService {
         long numeroAsignar = obtenerProximoNumeroComprobante(pvBloqueado, factura.getComprobanteTipo());
         factura.setNumeroComprobante(numeroAsignar);
         log.debug("Número {} asignado a la factura", numeroAsignar);
+
+        factura.setEstado("EMITIDA_PENDIENTE");
 
         Factura facturaGuardada = facturaRepository.save(factura);
         log.info("Factura ID {} guardada con Número {}", facturaGuardada.getId(), facturaGuardada.getNumeroComprobante());
@@ -284,4 +307,3 @@ public class FacturaServiceImpl implements FacturaService {
     }
 
 }
-
