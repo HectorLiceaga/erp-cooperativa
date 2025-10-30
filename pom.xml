@@ -2,118 +2,60 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    <!-- Hereda de Spring Boot Starter Parent para manejo de dependencias y plugins -->
+
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.3.5</version> <!-- Usamos la propiedad definida abajo -->
-        <relativePath/> <!-- lookup parent from repository -->
+        <version>3.3.5</version>
+        <relativePath/>
     </parent>
 
     <groupId>com.cooperativa.erp</groupId>
     <artifactId>erp-cooperativa-parent</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <packaging>pom</packaging> <!-- Este es un POM padre, no genera JAR -->
+    <packaging>pom</packaging>
     <name>ERP Cooperativa - Parent</name>
-    <description>Proyecto Padre para el ERP de Cooperativas Eléctricas</description>
+    <description>Proyecto Padre que gestiona los módulos del ERP de Cooperativas</description>
 
-    <!-- Propiedades Centralizadas -->
     <properties>
+        <!--
+          Propiedades explícitas para la versión de Java.
+          Actualizado a Java 21 según tu generación del proyecto.
+        -->
         <java.version>21</java.version>
-        <spring-boot.version>3.3.5</spring-boot.version>
-        <!-- Añadimos propiedad para la versión de Lombok -->
-        <lombok.version>1.18.32</lombok.version> <!-- Versión compatible y reciente -->
-        <!-- Versiones de plugins -->
-        <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
-        <maven-surefire-plugin.version>3.2.5</maven-surefire-plugin.version>
-        <maven-resources-plugin.version>3.3.1</maven-resources-plugin.version>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
     </properties>
 
-    <!-- Módulos que componen el proyecto -->
     <modules>
-        <module>modulo-core</module>         <!-- Lógica y entidades comunes -->
-        <module>modulo-electricidad</module> <!-- Lógica específica de electricidad -->
-        <module>modulo-facturacion</module>  <!-- Lógica de Facturación (UNA SOLA VEZ) -->
-        <module>modulo-app</module>          <!-- Aplicación ejecutable -->
+        <module>modulo-core</module>
+        <module>modulo-app</module>
     </modules>
 
-    <!-- Dependency Management: Define versiones aquí, los módulos hijos solo declaran groupId y artifactId -->
     <dependencyManagement>
         <dependencies>
-            <!-- Dependencias propias del proyecto -->
             <dependency>
                 <groupId>com.cooperativa.erp</groupId>
                 <artifactId>modulo-core</artifactId>
                 <version>${project.version}</version>
             </dependency>
-            <dependency>
-                <groupId>com.cooperativa.erp</groupId>
-                <artifactId>modulo-electricidad</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.cooperativa.erp</groupId>
-                <artifactId>modulo-facturacion</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-
-            <!-- Lombok (opcional en hijos, pero definido aquí) -->
-            <dependency>
-                <groupId>org.projectlombok</groupId>
-                <artifactId>lombok</artifactId>
-                <!-- Usamos la propiedad definida arriba -->
-                <version>${lombok.version}</version>
-                <optional>true</optional>
-            </dependency>
         </dependencies>
     </dependencyManagement>
 
-    <!-- Build Configuration Común (Plugins) -->
     <build>
         <pluginManagement>
             <plugins>
-                <!-- Plugin de Spring Boot (solo usado por modulo-app realmente) -->
-                <plugin>
-                    <groupId>org.springframework.boot</groupId>
-                    <artifactId>spring-boot-maven-plugin</artifactId>
-                    <version>${spring-boot.version}</version>
-                </plugin>
-                <!-- Plugin del Compilador -->
+                <!--
+                  Seguimos manteniendo esta configuración explícita
+                  para el plugin compilador.
+                -->
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
-                    <version>${maven-compiler-plugin.version}</version>
+                    <version>3.13.0</version>
                     <configuration>
-                        <source>${java.version}</source>
-                        <target>${java.version}</target>
+                        <!-- 'release' es la forma moderna de setear 'source' y 'target' -->
                         <release>${java.version}</release>
-                        <parameters>true</parameters> <!-- Incluir nombres de parámetros en .class (útil) -->
-                    </configuration>
-                </plugin>
-                <!-- Plugin para ejecutar Tests -->
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-surefire-plugin</artifactId>
-                    <version>${maven-surefire-plugin.version}</version>
-                    <configuration>
-                        <!-- Ejecutar tests en el mismo proceso de Maven (soluciona error Forked VM) -->
-                        <forkCount>0</forkCount>
-                        <!-- Memoria (útil si forkCount > 0, pero no molesta dejarla) -->
-                        <argLine>@{argLine} -Xms512m -Xmx1024m</argLine>
-                    </configuration>
-                </plugin>
-                <!-- Plugin para manejo de Recursos -->
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-resources-plugin</artifactId>
-                    <version>${maven-resources-plugin.version}</version>
-                    <configuration>
-                        <encoding>UTF-8</encoding>
-                        <!-- Desactivamos filtering temporalmente para evitar MalformedInputException -->
-                        <!--<filtering>false</filtering> -->
                     </configuration>
                 </plugin>
             </plugins>
