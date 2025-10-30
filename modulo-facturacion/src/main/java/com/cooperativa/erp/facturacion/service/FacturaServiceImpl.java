@@ -50,7 +50,10 @@ public class FacturaServiceImpl implements FacturaService {
     private final LecturaService lecturaService;
     private final PrecioConceptoService precioConceptoService;
 
-    // Inyección por constructor (correcta)
+    // --- NUEVO SERVICIO INYECTADO ---
+    private final CtaCteService ctaCteService;
+
+    // --- CONSTRUCTOR ACTUALIZADO ---
     public FacturaServiceImpl(FacturaRepository facturaRepository,
                               PuntoVentaRepository puntoVentaRepository,
                               ComprobanteTipoRepository comprobanteTipoRepository,
@@ -58,7 +61,8 @@ public class FacturaServiceImpl implements FacturaService {
                               ContratoElectricidadRepository contratoElectricidadRepository,
                               LecturaService lecturaService,
                               PrecioConceptoService precioConceptoService,
-                              EntityManager entityManager) {
+                              EntityManager entityManager,
+                              CtaCteService ctaCteService) { // Añadido
         this.facturaRepository = facturaRepository;
         this.puntoVentaRepository = puntoVentaRepository;
         this.comprobanteTipoRepository = comprobanteTipoRepository;
@@ -67,6 +71,7 @@ public class FacturaServiceImpl implements FacturaService {
         this.lecturaService = lecturaService;
         this.precioConceptoService = precioConceptoService;
         this.entityManager = entityManager;
+        this.ctaCteService = ctaCteService; // Añadido
     }
 
     @Override
@@ -120,11 +125,12 @@ public class FacturaServiceImpl implements FacturaService {
             throw new Exception("Lecturas de inicio/fin de período inconsistentes.");
         }
 
-        BigDecimal consumoCalculado = (lecturaFinal.getEstadoActual().subtract(lecturaInicial.getEstadoActual()))
+        // Usamos el consumo pre-calculado en la Lectura (más eficiente)
+        BigDecimal consumoCalculado = lecturaFinal.getConsumoKwh()
                 .multiply(medidor.getConstanteMultiplicacion());
 
-        log.info("Consumo calculado: {} kWh ( ({} - {}) * {} )", consumoCalculado.setScale(2, RoundingMode.HALF_UP),
-                lecturaFinal.getEstadoActual(), lecturaInicial.getEstadoActual(), medidor.getConstanteMultiplicacion());
+        log.info("Consumo (pre-calculado en Lectura): {} kWh. Multiplicado por constante {}: {} kWh",
+                lecturaFinal.getConsumoKwh(), medidor.getConstanteMultiplicacion(), consumoCalculado);
 
 
         // --- 4. Obtener Precios Vigentes y Calcular Items ---
@@ -148,7 +154,8 @@ public class FacturaServiceImpl implements FacturaService {
         FacturaDetalle detalleEnergia = new FacturaDetalle();
         detalleEnergia.setConceptoFacturable(conceptoEnergia); // Lombok generará setConceptoFacturable()
         detalleEnergia.setDescripcion(String.format("%s (%s kWh @ %s)", conceptoEnergia.getDescripcion(), consumoCalculado.toString(), precioEnergia.toString()));
-        detalleEnergia.setCantidad(consumoCalculado);
+        // --- CORRECCIÓN DEL TYPO ---
+        detalleEnergia.setCantidad(consumoCalculado); // Era 'consumado'
         detalleEnergia.setPrecioUnitario(precioEnergia);
         detalleEnergia.setImporteNeto(importeEnergia);
         detalles.add(detalleEnergia);
@@ -236,8 +243,6 @@ public class FacturaServiceImpl implements FacturaService {
         Optional<Lectura> optLecturaInicial = lecturaService.buscarUltimaLecturaAntesDe(contratoElec.getId(), lecturaFinal.getFechaPeriodo());
         Lectura lecturaInicial = optLecturaInicial.orElse(null);
 
-        // --- CORRECCIÓN LÓGICA: Usar el consumo pre-calculado de la Lectura ---
-        // El consumo ya fue calculado (estadoActual - estadoAnterior) en LecturaServiceImpl
         BigDecimal consumoCalculado = lecturaFinal.getConsumoKwh()
                 .multiply(medidor.getConstanteMultiplicacion());
 
@@ -302,7 +307,7 @@ public class FacturaServiceImpl implements FacturaService {
         factura.setPuntoVenta(puntoVenta);
         factura.setComprobanteTipo(tipoComprobante);
         factura.setFechaEmision(LocalDate.now());
-        factura.setPeriodoDesde(lecturaInicial != null ? lecturaInicial.getFechaPeriodo() : lecturaFinal.getFechaPeriodo().minusMonths(1)); // Asume período anterior si es la primera
+        factura.setPeriodoDesde(lecturaInicial != null ? lecturaInicial.getFechaPeriodo() : lecturaFinal.getFechaPeriodo().minusMonths(1));
         factura.setPeriodoHasta(lecturaFinal.getFechaPeriodo());
         factura.setFechaVencimiento(fechaVencimiento);
         factura.setImporteNeto(subtotalNeto);
@@ -363,7 +368,9 @@ public class FacturaServiceImpl implements FacturaService {
         puntoVentaRepository.save(pvBloqueado);
         log.info("Último número actualizado en PV {} a {}", pvBloqueado.getNumero(), numeroAsignar);
 
-        log.warn("Falta implementar registro en Cuenta Corriente");
+        // --- LLAMADA AL NUEVO SERVICIO ---
+        ctaCteService.registrarDebePorFactura(facturaGuardada);
+        // El log.warn("Falta implementar...") ya no es necesario aquí.
 
         return facturaGuardada;
     }
